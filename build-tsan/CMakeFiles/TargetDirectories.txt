@@ -1,3 +1,0 @@
-/home/student/Dhruvil_Om_BMP_2026/HPC/MiniDB/build-tsan/CMakeFiles/minidb.dir
-/home/student/Dhruvil_Om_BMP_2026/HPC/MiniDB/build-tsan/CMakeFiles/edit_cache.dir
-/home/student/Dhruvil_Om_BMP_2026/HPC/MiniDB/build-tsan/CMakeFiles/rebuild_cache.dir

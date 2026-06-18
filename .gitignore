@@ -1,0 +1,38 @@
+# Build directories
+build/
+build-tsan/
+build-*/
+
+# CMake outputs
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+*.cmake
+
+# Executables and libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+minidb
+minidb_cli
+
+# Database files
+*.db
+*.wal
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

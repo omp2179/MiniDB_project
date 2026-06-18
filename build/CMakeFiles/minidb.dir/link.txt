@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/minidb.dir/engine/BufferPool.cpp.o CMakeFiles/minidb.dir/engine/DiskManager.cpp.o CMakeFiles/minidb.dir/engine/Engine.cpp.o CMakeFiles/minidb.dir/engine/Index.cpp.o CMakeFiles/minidb.dir/engine/LogManager.cpp.o CMakeFiles/minidb.dir/engine/RecoveryManager.cpp.o CMakeFiles/minidb.dir/engine/main.cpp.o -o minidb 
