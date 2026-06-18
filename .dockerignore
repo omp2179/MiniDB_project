@@ -1,0 +1,10 @@
+.git
+build/
+build-tsan/
+build-final-check/
+*.db
+*.wal
+CMakeFiles/
+cmake_install.cmake
+CMakeCache.txt
+Makefile

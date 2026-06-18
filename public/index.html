@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniDB Notes Vault</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5c6670;
+      --line: #d9dee5;
+      --panel: #ffffff;
+      --bg: #f4f7fb;
+      --accent: #1167b1;
+      --accent-2: #0b8f6a;
+      --danger: #b3261e;
+      --warn: #9a6700;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header {
+      padding: 22px 28px;
+      background: #0f2438;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    h1 { font-size: 24px; margin: 0; letter-spacing: 0; }
+    header p { margin: 4px 0 0; color: #c8d5e2; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      padding: 18px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    section, aside {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    h3 { margin: 18px 0 10px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .mode button, button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .btn-sm { padding: 4px 8px; font-size: 12px; font-weight: normal; }
+    .mode button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.primary { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+    button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    label.check { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+    .notes { display: grid; gap: 8px; margin-top: 12px; }
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fbfcfe;
+      white-space: pre-wrap;
+    }
+    .banner {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #e7f7ef;
+      color: #0b5c3d;
+      border: 1px solid #b7e4cd;
+    }
+    .banner.show { display: block; }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+      gap: 12px;
+    }
+    .metric span:first-child { color: var(--muted); }
+    .bar { height: 10px; border-radius: 10px; background: #e5eaf0; overflow: hidden; }
+    .bar div { height: 100%; background: var(--accent-2); width: 0%; }
+    .wal { font-family: ui-sans-serif, system-ui, sans-serif; display: grid; gap: 8px; }
+    .wal-row { padding: 10px 14px; background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 4px; }
+    .wal-row.op-insert { border-left-color: var(--accent-2); }
+    .wal-row.op-update { border-left-color: var(--warn); }
+    .wal-row.op-delete { border-left-color: var(--danger); }
+    .wal-row.op-meta { border-left-color: var(--accent); }
+    .wal-header { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .wal-body { font-size: 13px; color: var(--ink); line-height: 1.4; }
+    .wal-body strong { color: #111; }
+    .wal-key { font-family: ui-monospace, monospace; font-size: 10px; color: #88929e; margin-top: 4px; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .bp-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 10px 0; }
+    .bp-frame { height: 36px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: white; background: #e5eaf0; border: 1px solid rgba(0,0,0,0.1); }
+    .bp-frame.clean { background: var(--accent-2); }
+    .bp-frame.dirty { background: var(--warn); }
+    .bp-frame.empty { background: #f4f7fb; color: transparent; border-color: var(--line); border-style: dashed; }
+    .badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; margin-right: 8px; letter-spacing: 0.05em; }
+    .badge.insert { background: var(--accent-2); }
+    .badge.update { background: var(--warn); }
+    .badge.delete { background: var(--danger); }
+    .badge.meta { background: var(--muted); }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>MiniDB Notes Vault</h1>
+    <p>Compare naive in-memory notes with embedded MiniDB WAL, recovery, buffer pool, and index.</p>
+  </div>
+  <div id="crashCounter">Boot count: -</div>
+</header>
+
+<main>
+  <section>
+    <h2>Write Notes</h2>
+    <div class="mode row">
+      <button id="modeNaive">Naive I/O (Memory)</button>
+      <button id="modeMini" class="active">MiniDB (WAL + Index)</button>
+      <label class="check"><input id="asyncMode" type="checkbox" /> Async write mode</label>
+    </div>
+
+    <h3>New Note</h3>
+    <textarea id="noteText" placeholder="Write a note to store..."></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="saveNote">Save note</button>
+      <button id="refreshNotes">Refresh notes</button>
+    </div>
+    <div id="notes" class="notes"></div>
+
+    <h3>Search Impact</h3>
+    <div class="split">
+      <input id="searchKey" type="text" placeholder="MiniDB key, e.g. note:<session>:00000000" />
+      <label class="check"><input id="disableIndex" type="checkbox" /> Disable index (linear scan)</label>
+    </div>
+    <div id="bloom-filter-status" style="margin-top: 1rem; display: none; padding: 0.75rem; border-radius: 6px; font-weight: 500; font-size: 0.9rem;"></div>
+    <div class="row" style="margin-top:10px; align-items:flex-start;">
+      <button id="runSearch">Run search</button>
+      <div id="searchResult" class="muted" style="white-space: pre-wrap; background: #fbfcfe; padding: 10px; border-radius: 6px; border: 1px solid var(--line); flex: 1;"></div>
+    </div>
+
+    <h3 style="margin-top: 24px;">Database Administration</h3>
+    <div class="row">
+      <button class="btn-sm" id="forceCheckpoint" style="background:var(--accent-2)">Force Checkpoint</button>
+      <button class="btn-sm danger" id="wipeDatabase">Wipe Database</button>
+    </div>
+
+    <h3 style="margin-top: 24px;">Crash Controls</h3>
+    <div class="row">
+      <button class="danger" id="cleanCrash">Clean crash</button>
+      <button class="danger" id="midTxnCrash">Mid-txn crash (UNDO)</button>
+    </div>
+    <div id="recoveryBanner" class="banner"></div>
+  </section>
+
+  <aside>
+    <h2>MiniDB Internals</h2>
+    <div class="metric"><span>Buffer pool frames</span><strong id="bpPages">-</strong></div>
+    <div id="bpGrid" class="bp-grid"></div>
+    <div class="metric"><span>Hit rate</span><strong id="hitRate">-</strong></div>
+    <div class="metric"><span>WAL size</span><strong id="walSize">-</strong></div>
+
+    <h3>WAL Tail</h3>
+    <div id="walTail" class="wal"></div>
+
+    <h3>Benchmarks</h3>
+    <button id="runBench">Run 10K benchmark</button>
+    <div id="benchmarks" class="muted" style="margin-top:10px">Not run yet.</div>
+
+    <h3>Concurrency Demo</h3>
+    <button id="btnSlowRead">Slow Read (3s)</button>
+    <button id="btnSlowWrite">Slow Write (3s)</button>
+    <div id="demoStatus" class="muted" style="margin-top:10px">Waiting...</div>
+  </aside>
+</main>
+
+<script>
+const sid = localStorage.getItem('sid') || crypto.randomUUID();
+localStorage.setItem('sid', sid);
+let mode = 'minidb';
+let lastKey = `note:${sid}:00000000`;
+let currentEditKey = '';
+let noteMap = {};
+
+document.getElementById('searchKey').value = lastKey;
+
+function setMode(next) {
+  mode = next;
+  document.getElementById('modeNaive').classList.toggle('active', mode === 'naive');
+  document.getElementById('modeMini').classList.toggle('active', mode === 'minidb');
+  currentEditKey = '';
+  document.getElementById('noteText').value = '';
+  document.getElementById('saveNote').textContent = 'Save note';
+  loadNotes();
+}
+
+document.getElementById('modeNaive').onclick = () => setMode('naive');
+document.getElementById('modeMini').onclick = () => setMode('minidb');
+
+  document.getElementById('cleanCrash').onclick = () => crash('/api/crash');
+  document.getElementById('midTxnCrash').onclick = () => crash('/api/crash_mid_txn');
+  
+  document.getElementById('forceCheckpoint').onclick = async () => {
+      await fetch('/api/checkpoint', {method: 'POST'});
+      await loadStatus();
+  };
+
+  document.getElementById('wipeDatabase').onclick = async () => {
+      if (!confirm("Are you sure you want to completely wipe the database? This cannot be undone.")) return;
+      await fetch('/api/wipe', {method: 'POST'});
+      await loadNotes();
+      await loadStatus();
+  };
+
+action('saveNote', async () => {
+  const text = document.getElementById('noteText').value.trim();
+  if (!text) return;
+  const sync = !document.getElementById('asyncMode').checked;
+  const reqBody = {mode, session_id: sid, text, sync};
+  if (currentEditKey) {
+      reqBody.key = currentEditKey;
+  }
+  const res = await fetch('/api/note', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(reqBody)
+  });
+  const json = await res.json();
+  if (json.key) {
+    lastKey = json.key;
+    document.getElementById('searchKey').value = lastKey;
+  }
+  document.getElementById('noteText').value = '';
+  currentEditKey = '';
+  document.getElementById('saveNote').textContent = 'Save note';
+  await loadNotes();
+  await loadStatus();
+});
+
+action('refreshNotes', loadNotes);
+action('runSearch', runSearch);
+action('runBench', runBenchmarks);
+action('btnSlowRead', runSlowRead);
+action('btnSlowWrite', runSlowWrite);
+action('cleanCrash', () => crash('/api/crash'));
+action('midTxnCrash', () => crash('/api/crash_mid_txn'));
+
+function action(id, fn) {
+  document.getElementById(id).addEventListener('click', async () => {
+    try { await fn(); } catch (e) { alert(e.message); }
+  });
+}
+
+async function loadNotes() {
+  const res = await fetch(`/api/notes?mode=${encodeURIComponent(mode)}&session_id=${encodeURIComponent(sid)}`);
+  const json = await res.json();
+  const box = document.getElementById('notes');
+  box.innerHTML = '';
+  noteMap = {};
+  (json.notes || []).forEach((noteObj, idx) => {
+    noteMap[noteObj.key] = noteObj.text;
+    const div = document.createElement('div');
+    div.className = 'note';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+         <strong style="color:var(--muted); font-size:12px;">NOTE ${idx + 1}</strong>
+         <div class="row" style="gap:4px;">
+             <button class="btn-sm" onclick="copyKey('${noteObj.key}')">Copy Key</button>
+             <button class="btn-sm" onclick="editNote('${noteObj.key}')">Edit</button>
+             <button class="btn-sm danger" onclick="deleteNote('${noteObj.key}')">Delete</button>
+         </div>
+      </div>
+      <div style="white-space:pre-wrap;"></div>
+    `;
+    div.lastElementChild.textContent = noteObj.text; // Safe text injection
+    box.appendChild(div);
+  });
+}
+
+window.editNote = (key) => {
+  currentEditKey = key;
+  document.getElementById('noteText').value = noteMap[key] || '';
+  document.getElementById('saveNote').textContent = 'Update note';
+};
+
+window.copyKey = (key) => {
+  navigator.clipboard.writeText(key).then(() => {
+    const btn = event.target;
+    const oldText = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = oldText, 1500);
+  });
+};
+
+window.deleteNote = async (key) => {
+  if (!confirm("Are you sure you want to delete this note?")) return;
+  const sync = !document.getElementById('asyncMode').checked;
+  await fetch('/api/note', {
+    method: 'DELETE',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mode, session_id: sid, key, sync})
+  });
+  if (currentEditKey === key) {
+    currentEditKey = '';
+    document.getElementById('noteText').value = '';
+    document.getElementById('saveNote').textContent = 'Save note';
+  }
+  await loadNotes();
+  await loadStatus();
+};
+
+async function runSearch() {
+  const query = document.getElementById('searchKey').value.trim();
+  const bypass = document.getElementById('disableIndex').checked;
+  const resultDiv = document.getElementById('searchResult');
+  const bloomStatus = document.getElementById('bloom-filter-status');
+  
+  const res = await fetch(`/api/search?key=${encodeURIComponent(query)}&use_index=${!bypass}`);
+  const data = await res.json();
+  
+  if (data.bloom_rejected) {
+      bloomStatus.style.display = 'block';
+      bloomStatus.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+      bloomStatus.style.color = '#10B981';
+      bloomStatus.style.border = '1px solid #10B981';
+      bloomStatus.innerHTML = `🛡️ <strong>BLOOM FILTER: REJECTED</strong><br/>Key mathematically cannot exist. 0 Disk I/O. Saved expensive scan.`;
+      resultDiv.style.display = 'none';
+      return;
+  } else {
+      bloomStatus.style.display = 'block';
+      bloomStatus.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+      bloomStatus.style.color = '#3B82F6';
+      bloomStatus.style.border = '1px solid #3B82F6';
+      bloomStatus.innerHTML = `✅ <strong>BLOOM FILTER: PASSED</strong><br/>Key might exist. Proceeding to Storage Layer...`;
+  }
+
+  resultDiv.style.display = 'block';
+  let header = `<strong>${data.microseconds} us</strong> | ${!bypass ? 'indexed' : 'linear scan'} | ${data.found ? '<span style="color:var(--accent-2)">found</span>' : '<span style="color:var(--danger)">missing</span>'}${data.pages_scanned ? ' | pages scanned: ' + data.pages_scanned : ''}`;
+  
+  if (data.found && data.value) {
+    resultDiv.innerHTML = `${header}<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:var(--ink)">${data.value}</div>`;
+  } else {
+    resultDiv.innerHTML = header;
+  }
+  
+  await loadStatus();
+}
+
+async function loadStatus() {
+  const res = await fetch('/api/status');
+  const json = await res.json();
+  document.getElementById('crashCounter').textContent = `Boot count: ${json.crash_count}`;
+  const bp = json.buffer_pool || {};
+  document.getElementById('bpPages').textContent = `${bp.size || 0}/${bp.capacity || 0}`;
+  document.getElementById('hitRate').textContent = `${Math.round((bp.hit_rate || 0) * 100)}%`;
+  
+  const bpGrid = document.getElementById('bpGrid');
+  if (bpGrid && bp.frames) {
+      bpGrid.innerHTML = '';
+      bp.frames.forEach(f => {
+          const div = document.createElement('div');
+          div.className = 'bp-frame ' + (!f.valid ? 'empty' : (f.dirty ? 'dirty' : 'clean'));
+          if (f.valid) div.textContent = 'P' + f.page_id;
+          bpGrid.appendChild(div);
+      });
+  }
+
+  document.getElementById('walSize').textContent = `${json.wal?.size || 0} bytes`;
+  const tail = document.getElementById('walTail');
+  tail.innerHTML = '';
+  (json.wal?.tail || []).forEach(r => {
+    const row = document.createElement('div');
+    const op = r.op || 'META';
+    const badgeCls = op.toLowerCase();
+    row.className = `wal-row op-${badgeCls}`;
+    
+    // Parse note index if it's a note key
+    let readableKey = r.key || '';
+    let noteIdxStr = "";
+    if (readableKey.startsWith("note:")) {
+        const parts = readableKey.split(':');
+        if (parts.length === 3) {
+            noteIdxStr = ` Note ${parseInt(parts[2], 10) + 1}`;
+        }
+    } else if (readableKey === 'system_crash_count') {
+        noteIdxStr = " System Crash Counter";
+    }
+
+    let sentence = "";
+    if (op === 'INSERT') {
+        sentence = `Added<strong>${noteIdxStr}</strong> to <strong>Page ${r.page_id}</strong>`;
+    } else if (op === 'UPDATE') {
+        sentence = `Updated<strong>${noteIdxStr}</strong> on <strong>Page ${r.page_id}</strong>`;
+    } else if (op === 'DELETE') {
+        sentence = `Deleted<strong>${noteIdxStr}</strong> from <strong>Page ${r.page_id}</strong>`;
+    } else if (r.status === 'COMMIT') {
+        sentence = `<strong>Transaction ${r.txn_id}</strong> permanently committed to disk`;
+    } else if (r.status === 'CHECKPOINT') {
+        sentence = `System checkpoint created (safely flushes dirty pages)`;
+    } else {
+        sentence = `Transaction ${r.txn_id} performed ${r.status}`;
+    }
+
+    row.innerHTML = `
+      <div class="wal-header">
+         <span>LSN ${r.lsn}</span>
+         <span style="color:var(--ink)">TXN ${r.txn_id}</span>
+      </div>
+      <div class="wal-body">${sentence}</div>
+      ${r.key ? `<div class="wal-key">${r.key}</div>` : ''}
+    `;
+    tail.appendChild(row);
+  });
+  if (json.recovery_log) {
+    const banner = document.getElementById('recoveryBanner');
+    banner.textContent = json.recovery_log;
+    banner.classList.add('show');
+  }
+}
+
+async function runBenchmarks() {
+  const box = document.getElementById('benchmarks');
+  box.textContent = 'Running benchmark...';
+  const res = await fetch('/api/benchmark?ops=10000');
+  const b = await res.json();
+  box.innerHTML = `
+    <div class="metric"><span>WAL sync writes</span><strong>${b.wal_sync_us} us</strong></div>
+    <div class="metric"><span>Group commit writes</span><strong>${b.wal_batch_us} us</strong></div>
+    <div class="metric"><span>Warm indexed reads</span><strong>${b.warm_read_us} us</strong></div>
+    <div class="metric"><span>Cold-ish reads</span><strong>${b.cold_read_us} us</strong></div>`;
+}
+
+async function crash(url) {
+  document.body.style.opacity = '0.55';
+  try { await fetch(url, {method: 'POST'}); } catch (_) {}
+  let tries = 0;
+  const timer = setInterval(async () => {
+    tries++;
+    try {
+      await loadStatus();
+      await loadNotes();
+      document.body.style.opacity = '1';
+      clearInterval(timer);
+    } catch (_) {
+      if (tries > 30) {
+        document.body.style.opacity = '1';
+        clearInterval(timer);
+      }
+    }
+  }, 500);
+}
+
+async function runSlowRead() {
+  const stat = document.getElementById('demoStatus');
+  stat.textContent = 'Reading (Shared Lock) 3s...';
+  const start = performance.now();
+  const res = await fetch('/api/demo/slow_read', {method: 'POST'});
+  const json = await res.json();
+  const end = performance.now();
+  stat.innerHTML = `Read finished in <strong>${(end-start).toFixed(0)} ms</strong>`;
+}
+
+async function runSlowWrite() {
+  const stat = document.getElementById('demoStatus');
+  stat.textContent = 'Writing (Exclusive Lock) 3s...';
+  const start = performance.now();
+  const res = await fetch('/api/demo/slow_write', {method: 'POST'});
+  const json = await res.json();
+  const end = performance.now();
+  stat.innerHTML = `Write finished in <strong>${(end-start).toFixed(0)} ms</strong>`;
+}
+
+loadNotes();
+loadStatus();
+setInterval(loadStatus, 2500);
+</script>
+</body>
+</html>
