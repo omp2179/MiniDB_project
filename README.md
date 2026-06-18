@@ -1,8 +1,8 @@
 # MiniDB
 
-Every time you open Instagram, a key-value store like Amazon DynamoDB serves your feed in single-digit milliseconds. When Discord delivers a message to millions of concurrent users, ScyllaDB handles the fan-out. RocksDB sits at the heart of Meta's distributed infrastructure, handling trillions of queries a day across services like Messenger and the social graph. SQLite is embedded in every smartphone on the planet — your contacts, your browser history, your text messages — all stored in a page-oriented database with a write-ahead log.
+Google's LevelDB is the reason Chrome can store your browsing data, IndexedDB entries, and offline-capable web apps locally — it's the embedded key-value engine behind most of the browser's persistent storage. Meta's RocksDB powers the storage layer under MySQL (MyRocks) across their entire social graph, cutting storage costs in half while handling trillions of queries a day. SQLite runs on every smartphone on the planet, quietly managing your contacts, text messages, and app data through a page-oriented storage engine with a write-ahead log that survives unexpected shutdowns.
 
-Ever wondered what actually happens inside these systems when you call `put("user:1234", data)`? How does the data survive a power failure halfway through a write? How does the database figure out which changes to keep and which to throw away after a crash? How does a page cache decide what stays in memory and what gets evicted back to disk?
+Ever wondered what actually happens inside these systems when you call `put("user:1234", data)`? How does the data survive a power failure halfway through a write? How does the engine figure out which changes to keep and which to roll back after a crash? How does a page cache decide what stays in memory and what gets evicted to disk?
 
 MiniDB is a key-value storage engine built in C++17 that answers these questions with working code. It implements the same fundamental architecture that real databases use — disk-backed pages, an LRU buffer pool, a write-ahead log with checksummed records, ARIES-style crash recovery, a sparse index for O(log n) lookups, a Bloom filter to short-circuit unnecessary I/O, and a concurrency model that lets readers proceed in parallel while writers hold exclusive access.
 
@@ -377,7 +377,7 @@ The server also exposes a JSON API for programmatic access:
 ## Project structure
 
 ```
-MiniDB_project/
+MiniDB/
 ├── engine/
 │   ├── DiskManager.h / .cpp       Page-level I/O, fsync, file management
 │   ├── BufferPool.h / .cpp        LRU page cache with dirty tracking
@@ -395,21 +395,3 @@ MiniDB_project/
 ├── Dockerfile                     Single-stage Docker build
 └── .dockerignore
 ```
-
----
-
-## Design decisions
-
-**Fixed-size WAL records (345 bytes).** Variable-length records are more space-efficient but require length-prefix parsing during recovery scans. Fixed-size records let you jump to any record by byte offset (`N × 345`) and make the recovery scan a simple sequential read with no branching on record boundaries. The 345-byte size follows naturally from the key (64B), old_val (128B), new_val (128B), and metadata fields.
-
-**CRC32 on every WAL record.** If the process crashes mid-write, the last record in the WAL could be partially written — half-filled bytes that look like valid data but aren't. The checksum detects this during recovery and skips the corrupted record instead of misinterpreting it. This is the same approach used by PostgreSQL's WAL and RocksDB's log format.
-
-**Page copying instead of page pinning.** The buffer pool returns a full `std::array<char, 4096>` by value, not a pointer into the frame. This means the caller can safely read the data after releasing the lock, and the buffer pool can freely evict and reuse frames without worrying about dangling references. The cost is a 4 KB memcpy per access, which is well within L1/L2 cache bandwidth and eliminates use-after-eviction bugs entirely.
-
-**Bloom filter before the index.** The filter sits between the engine's public API and the index/buffer pool. For keys that don't exist, it returns in nanoseconds — no lock escalation, no tree traversal, no disk I/O. The 1 KB bit array stays resident in CPU cache across calls. False positives are harmless (the index just returns "not found"); false negatives never happen.
-
-**Single engine-level shared_mutex.** Finer-grained locking (per-page latches, lock-free concurrent index, separate WAL mutex) would unlock higher concurrent throughput. The single shared_mutex is a deliberate choice for clarity: readers proceed in parallel, writers are exclusive, and the locking invariants are easy to verify. The WAL and buffer pool still have their own internal latches for operations that require them.
-
-**Free-page reclamation via FIFO queue.** When a key is deleted, its page slot is pushed onto a `std::queue<page_id_t>`. Future writes pop from this queue before allocating a new page, reusing the disk space without compaction or garbage collection passes.
-
-**Index rebuilt on startup, not persisted.** The index is an in-memory `std::map` that is reconstructed by scanning every page header in the .db file after recovery. This avoids the complexity of persisting and maintaining a durable index structure (B-tree on disk, WAL entries for index changes), at the cost of a startup scan that is linear in the number of pages. For the dataset sizes MiniDB targets, this scan completes in milliseconds.
